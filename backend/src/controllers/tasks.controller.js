@@ -1,49 +1,60 @@
 // Álvaro Martínez
-// Almacén temporal en memoria (se pierde al reiniciar el servidor)
-const tasks = [
-  { id: 1, title: 'Diseñar logo', description: '', status: 'pendiente', team_id: 1, assigned_to: null },
-  { id: 2, title: 'Preparar demo', description: '', status: 'en_curso', team_id: 1, assigned_to: null },
-  { id: 3, title: 'Revisar API', description: '', status: 'pendiente', team_id: 2, assigned_to: null },
-];
-let nextId = 4;
+const db = require('../config/db');
+const service = require('../services/tasks.service');
 
-exports.list = (req, res) => {
+// Devuelve el equipo o undefined si no existe
+const findTeam = (teamId) =>
+  Number.isInteger(teamId) ? db('teams').where({ id: teamId }).first() : undefined;
+
+// Comprueba que el usuario asignado pertenece al equipo
+const isMember = async (teamId, userId) =>
+  !!(await db('team_members').where({ team_id: teamId, user_id: userId }).first());
+
+exports.list = async (req, res) => {
   const teamId = Number(req.params.teamId);
-  res.json(tasks.filter((t) => t.team_id === teamId));
+  if (!(await findTeam(teamId))) {
+    return res.status(404).json({ error: 'Equipo no encontrado' });
+  }
+  res.json(await service.listByTeam(teamId));
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
+  const teamId = Number(req.params.teamId);
+  if (!(await findTeam(teamId))) {
+    return res.status(404).json({ error: 'Equipo no encontrado' });
+  }
   const { title, description, status, assigned_to } = req.body;
-  const task = {
-    id: nextId++,
+  if (assigned_to && !(await isMember(teamId, assigned_to))) {
+    return res.status(400).json({ error: 'El usuario asignado no pertenece al equipo' });
+  }
+  const task = await service.create({
     title,
     description,
     status: status || 'pendiente',
-    team_id: Number(req.params.teamId),
+    team_id: teamId,
     assigned_to: assigned_to ?? null,
-  };
-  tasks.push(task);
+  });
   res.status(201).json(task);
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const teamId = Number(req.params.teamId);
-  const task = tasks.find((t) => t.id === Number(req.params.taskId) && t.team_id === teamId);
-  if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+  const actual = await service.findInTeam(Number(req.params.taskId), teamId);
+  if (!actual) return res.status(404).json({ error: 'Tarea no encontrada' });
 
   const { title, description, status, assigned_to } = req.body;
-  task.title = title;
-  task.description = description;
-  if (status !== undefined) task.status = status;
-  if (assigned_to !== undefined) task.assigned_to = assigned_to;
-  res.json(task);
+  if (assigned_to && !(await isMember(teamId, assigned_to))) {
+    return res.status(400).json({ error: 'El usuario asignado no pertenece al equipo' });
+  }
+  const data = { title, description };
+  if (status !== undefined) data.status = status;
+  if (assigned_to !== undefined) data.assigned_to = assigned_to;
+  res.json(await service.update(actual.id, data));
 };
 
-exports.remove = (req, res) => {
-  const teamId = Number(req.params.teamId);
-  const index = tasks.findIndex((t) => t.id === Number(req.params.taskId) && t.team_id === teamId);
-  if (index === -1) return res.status(404).json({ error: 'Tarea no encontrada' });
-
-  tasks.splice(index, 1);
+exports.remove = async (req, res) => {
+  const actual = await service.findInTeam(Number(req.params.taskId), Number(req.params.teamId));
+  if (!actual) return res.status(404).json({ error: 'Tarea no encontrada' });
+  await service.remove(actual.id);
   res.status(204).send();
 };

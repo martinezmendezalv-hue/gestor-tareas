@@ -1,23 +1,19 @@
 // Álvaro Martínez
-// Almacén temporal en memoria (se pierde al reiniciar el servidor)
-const teams = [
-  { id: 1, name: 'Equipo Alfa' },
-  { id: 2, name: 'Equipo Beta' },
-];
-let nextId = 3;
+const db = require('../config/db');
 
-exports.list = (req, res) => {
-  res.json(teams);
+exports.list = async (req, res) => {
+  res.json(await db('teams').select('*').orderBy('id'));
 };
 
-exports.getById = (req, res) => {
-  const team = teams.find((t) => t.id === Number(req.params.id));
+exports.getById = async (req, res) => {
+  const team = await db('teams').where({ id: Number(req.params.id) }).first();
   if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
   res.json(team);
 };
 
-exports.create = (req, res) => {
-  const team = { id: nextId++, name: req.body.name };
-  teams.push(team);
+exports.create = async (req, res) => {
+  // created_by quedará vacío hasta que exista autenticación (Fase 3)
+  const [id] = await db('teams').insert({ name: req.body.name });
+  const team = await db('teams').where({ id }).first();
   res.status(201).json(team);
 };
