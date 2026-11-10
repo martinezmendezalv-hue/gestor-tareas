@@ -1,3 +1,4 @@
+// Álvaro Martínez
 const { z } = require('zod');
 
 const registerSchema = z.object({

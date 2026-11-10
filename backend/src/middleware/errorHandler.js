@@ -1,3 +1,4 @@
+// Álvaro Martínez
 module.exports = (err, req, res, next) => {
   // Cuerpo con JSON mal formado
   if (err.type === 'entity.parse.failed') {

@@ -1,3 +1,4 @@
+// Álvaro Martínez
 // Almacén temporal en memoria (se pierde al reiniciar el servidor)
 const teams = [
   { id: 1, name: 'Equipo Alfa' },

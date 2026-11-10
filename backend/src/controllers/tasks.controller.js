@@ -1,3 +1,4 @@
+// Álvaro Martínez
 // Almacén temporal en memoria (se pierde al reiniciar el servidor)
 const tasks = [
   { id: 1, title: 'Diseñar logo', description: '', status: 'pendiente', team_id: 1, assigned_to: null },
